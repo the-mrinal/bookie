@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Bot",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/bot.py",
+            "console": "integratedTerminal",
+            "env": {
+                "TELEGRAM_TOKEN":"7953437748:AAElPxI5X6e7p2CWvazMHuJRtvGdFB3LUh4",
+                "DRIVE_FOLDER_ID":"1ruJDqo6Jc7LTtcXbe5YTL1AntawML_ry",
+                "ALLOWED_USER_IDS":"945852428" ,
+                "GOOGLE_SHEET_NAME":"Expense Manager Mrinal"
+                
+            }
+        }
+    ]
+}
