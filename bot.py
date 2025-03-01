@@ -17,8 +17,13 @@ load_dotenv()
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME', 'Expense Tracker') 
 DRIVE_FOLDER_ID = os.getenv('DRIVE_FOLDER_ID')
-ALLOWED_USER_IDS = [int(id) for id in os.getenv('ALLOWED_USER_IDS').split(',')]
+ALLOWED_USER_IDS = [945852428]
 PHOTO_TTL = 300  # 5 minutes in seconds
+
+# Webhook Configuration
+WEBHOOK_URL = os.getenv('WEBHOOK_URL','https://7e02-2401-4900-883b-a956-301b-68df-221-63e.ngrok-free.app')  # Your public HTTPS URL
+PORT = int(os.getenv('PORT', '8443'))  # Must be one of 443, 80, 88, or 8443
+WEBHOOK_PATH = os.getenv('WEBHOOK_PATH', '/webhook')
 
 # Google Services Setup
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets',
@@ -27,7 +32,7 @@ CREDS = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
 client = gspread.authorize(CREDS)
 
 spreadsheet = client.open(GOOGLE_SHEET_NAME)
-log_sheet = spreadsheet.worksheet('Transactions')  # Rename your data sheet
+log_sheet = spreadsheet.worksheet('Transactions')
 dashboard_sheet = spreadsheet.worksheet('Dashboard')
 
 drive_service = build('drive', 'v3', credentials=CREDS)
@@ -124,8 +129,8 @@ async def monthly_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         monthly_total = dashboard_sheet.acell('A2').value
 
         # Get category names and totals
-        category_names = dashboard_sheet.col_values(2)[3:] # Get data from "C" Col excluding headers and total 
-        category_totals = dashboard_sheet.col_values(3)[3:] # Get Data from "D" col excluding headers and total.
+        category_names = dashboard_sheet.col_values(2)[3:] 
+        category_totals = dashboard_sheet.col_values(3)[3:]
 
         # Build the category breakdown string
         breakdown_text = ""
@@ -138,12 +143,35 @@ async def monthly_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Report error: {str(e)}")
 
+async def source(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"https://docs.google.com/spreadsheets/d/{spreadsheet.id}/edit?gid=0")
+
+
 if __name__ == '__main__':
+    # Set up logging
+    logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    
+    # Validate webhook URL
+    if not WEBHOOK_URL or not WEBHOOK_URL.startswith('https://'):
+        logger.error("WEBHOOK_URL must be an HTTPS URL")
+        exit(1)
+    
+    # Build the application
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
+    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("report", monthly_report))
+    application.add_handler(CommandHandler("source", source))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_expense))
     
-    application.run_polling()
+    # Start the webhook instead of polling
+    logger.info(f"Starting webhook on port {PORT} with URL path {WEBHOOK_PATH}")
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=WEBHOOK_PATH,
+        webhook_url=f"{WEBHOOK_URL}{WEBHOOK_PATH}"
+    )
